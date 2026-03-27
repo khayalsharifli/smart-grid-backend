@@ -1,82 +1,82 @@
-# SmartGrid Blockchain & Smart Contract Arxitekturası
+# SmartGrid Blockchain & Smart Contract Architecture
 
 **Network:** Ethereum (Sepolia Testnet → Mainnet)
-**Dil:** Solidity ^0.8.20
+**Language:** Solidity ^0.8.20
 **Framework:** Hardhat
-**Token Standart:** ERC-20 (OpenZeppelin)
-**Backend Inteqrasiya:** Web3j (Ktor)
+**Token Standard:** ERC-20 (OpenZeppelin)
+**Backend Integration:** Web3j (Ktor)
 
 ---
 
-## 1. On-chain vs Off-chain Data Bolgusu
+## 1. On-chain vs Off-chain Data Strategy
 
-### ON-CHAIN (Blockchain-de saxlanilir)
+### ON-CHAIN (Stored on Blockchain)
 
-| Data | Contract | Sebeb |
-|------|----------|-------|
-| EnergyToken balanslari | EnergyToken.sol | Decentralized ownership, ERC-20 standart |
-| Token transferleri (mint/burn/transfer) | EnergyToken.sol | Seffafliq, audit trail |
-| Enerji elanları (offers) | EnergyTrading.sol | Trustless marketplace, double-sale prevention |
-| Enerji alis-veris tranzaksiyalari | EnergyTrading.sol | Deyisilmezlik, seffafliq |
-| Offer statusu (Active/Sold/Cancelled) | EnergyTrading.sol | On-chain state tracking |
-| Smart meter qeydiyyati | SmartMeterRegistry.sol | Tamper-proof cihaz registry |
-| Meter data HASH-leri | SmartMeterRegistry.sol | Verification (raw data off-chain) |
-| Reward distribution | RewardDistributor.sol | Serf tokenomics, audit |
-| Governance teblikleri ve sesverme | GridGovernance.sol | Decentralized decision making |
+| Data | Contract | Rationale |
+|------|----------|-----------|
+| EnergyToken balances | EnergyToken.sol | Decentralized ownership, ERC-20 standard compliance |
+| Token transfers (mint/burn/transfer) | EnergyToken.sol | Transparency, immutable audit trail |
+| Energy offers (listings) | EnergyTrading.sol | Trustless marketplace, double-sale prevention |
+| Energy purchase transactions | EnergyTrading.sol | Immutability, transparent settlement |
+| Offer status (Active/Sold/Cancelled) | EnergyTrading.sol | On-chain state tracking |
+| Smart meter registration | SmartMeterRegistry.sol | Tamper-proof device registry |
+| Meter data hashes | SmartMeterRegistry.sol | Verification (raw data stored off-chain) |
+| Reward distribution records | RewardDistributor.sol | Transparent tokenomics, auditable payouts |
+| Governance proposals and voting | GridGovernance.sol | Decentralized decision-making |
 
-### OFF-CHAIN (PostgreSQL/Redis-de saxlanilir)
+### OFF-CHAIN (Stored in PostgreSQL/Redis)
 
-| Data | Harada | Sebeb |
-|------|--------|-------|
-| User profil (email, name, password) | PostgreSQL | Privacy, GDPR, sik deyisir |
-| JWT/Session tokenleri | Redis | Muveqqeti, suretli access |
-| Raw smart meter datasi | PostgreSQL + TimescaleDB | Hecm boyukdur, gas fee bahdir |
-| Real-time streaming data | Redis + WebSocket | Latency teleb olunur |
-| Analytics/Reports (aggregated) | TimescaleDB | Query performance |
-| Notification tarixcesi | PostgreSQL | Blockchain-e aid deyil |
-| IoT cihaz konfiqurasiyasi | PostgreSQL | Sik yenilenme |
+| Data | Storage | Rationale |
+|------|---------|-----------|
+| User profiles (email, name, password) | PostgreSQL | Privacy, GDPR compliance, frequently updated |
+| JWT/Session tokens | Redis | Ephemeral data, fast access required |
+| Raw smart meter data | PostgreSQL + TimescaleDB | High volume, gas cost prohibitive on-chain |
+| Real-time streaming data | Redis + WebSocket | Low-latency requirement |
+| Analytics/Reports (aggregated) | TimescaleDB | Query performance optimization |
+| Notification history | PostgreSQL | Not blockchain-relevant |
+| IoT device configuration | PostgreSQL | Frequently updated |
 
-### IPFS (Fayl saxlama)
+### IPFS (Decentralized File Storage)
 
-| Data | Sebeb |
-|------|-------|
-| Meter data raw batch-leri | Boyuk fayl, blockchain-e yazmaq bahdir |
-| PDF/CSV hesabatlari | Export edilmis fayllar |
-| Contract metadata | ABI, deploy info |
+| Data | Rationale |
+|------|-----------|
+| Meter data raw batches | Large files, too expensive for blockchain storage |
+| PDF/CSV exported reports | Exported documents |
+| Contract metadata | ABI definitions, deployment info |
 
 ---
 
-## 2. Smart Contract-lar
+## 2. Smart Contracts
 
 ### 2.1. EnergyToken.sol (ERC-20)
 
-**Meqsed:** Platformanin enerji tokeni. Enerji alis-verisi ve mukafatlar ucun istifade olunur.
+**Purpose:** The platform's energy token used for energy trading and reward distribution.
 
-**OpenZeppelin extends:** ERC20, ERC20Burnable, Ownable, AccessControl
+**OpenZeppelin Extensions:** ERC20, ERC20Burnable, Ownable, AccessControl
 
-**Rollar:**
-- `MINTER_ROLE` - token mint ede biler (Grid Operator)
-- `DEFAULT_ADMIN_ROLE` - rollari idare edir (Admin)
+**Roles:**
+- `MINTER_ROLE` — can mint new tokens (Grid Operator)
+- `DEFAULT_ADMIN_ROLE` — manages roles (Admin)
 
 **State Variables:**
 ```solidity
 string public constant NAME = "SmartGrid Energy Token";
 string public constant SYMBOL = "SGET";
 uint8 public constant DECIMALS = 18;
-uint256 public constant MAX_SUPPLY = 1_000_000_000 * 10**18; // 1 milyard
+uint256 public constant MAX_SUPPLY = 1_000_000_000 * 10**18; // 1 billion
 ```
 
-**Funksiyalar:**
+**Functions:**
 
-| Funksiya | Gosterici | Tesvir |
-|----------|-----------|--------|
-| `mint(address to, uint256 amount)` | onlyRole(MINTER_ROLE) | Yeni token yaradir |
-| `burn(uint256 amount)` | public | Oz tokenini yandiri |
-| `transfer(address to, uint256 amount)` | public | Token transfer |
-| `approve(address spender, uint256 amount)` | public | Marketplace ucun approval |
-| `transferFrom(address from, address to, uint256 amount)` | public | Approval-dan sonra transfer |
-| `balanceOf(address account)` | view | Balans oxuma |
-| `totalSupply()` | view | Umumi token supply |
+| Function | Access | Description |
+|----------|--------|-------------|
+| `mint(address to, uint256 amount)` | MINTER_ROLE | Mint new tokens to an address |
+| `burn(uint256 amount)` | public | Burn caller's own tokens |
+| `transfer(address to, uint256 amount)` | public | Transfer tokens to another address |
+| `approve(address spender, uint256 amount)` | public | Approve marketplace spending allowance |
+| `transferFrom(address from, address to, uint256 amount)` | public | Transfer from approved allowance |
+| `balanceOf(address account)` | view | Query token balance |
+| `totalSupply()` | view | Query total token supply |
 
 **Events:**
 ```solidity
@@ -84,9 +84,10 @@ event Transfer(address indexed from, address indexed to, uint256 value);
 event Approval(address indexed owner, address indexed spender, uint256 value);
 ```
 
-**Gas Estimation:**
-| Emeliyyat | Taxmini Gas |
-|-----------|-------------|
+**Gas Estimates:**
+
+| Operation | Estimated Gas |
+|-----------|---------------|
 | mint | ~51,000 |
 | transfer | ~51,000 |
 | approve | ~46,000 |
@@ -94,19 +95,19 @@ event Approval(address indexed owner, address indexed spender, uint256 value);
 
 ---
 
-### 2.2. EnergyTrading.sol (Esas muqavile)
+### 2.2. EnergyTrading.sol (Core Marketplace)
 
-**Meqsed:** P2P enerji ticareti. Prosumer elan yaradir, Consumer alir.
+**Purpose:** Peer-to-peer energy trading. Prosumers create offers, Consumers purchase energy.
 
 **State Variables:**
 ```solidity
-IERC20 public energyToken;           // EnergyToken referansi
-uint256 public offerCount;            // Elan saygaci
-uint256 public platformFeePercent;    // Platform komissiyasi (default: 2%)
-address public feeCollector;          // Komissiya yigan adres
+IERC20 public energyToken;           // EnergyToken reference
+uint256 public offerCount;            // Offer counter
+uint256 public platformFeePercent;    // Platform commission (default: 2%)
+address public feeCollector;          // Commission collector address
 mapping(uint256 => EnergyOffer) public offers;
-mapping(address => uint256[]) public sellerOffers;   // Saticinin elanlari
-mapping(address => uint256[]) public buyerPurchases; // Alicinin alislari
+mapping(address => uint256[]) public sellerOffers;   // Seller's offers
+mapping(address => uint256[]) public buyerPurchases; // Buyer's purchases
 ```
 
 **Enums:**
@@ -127,24 +128,24 @@ struct EnergyOffer {
     uint256 expiresAt;
     EnergySource source;
     OfferStatus status;
-    address buyer;             // address(0) eger satilmayib
-    uint256 settledAt;         // settle timestamp
+    address buyer;             // address(0) if unsold
+    uint256 settledAt;         // settlement timestamp
 }
 ```
 
-**Funksiyalar:**
+**Functions:**
 
-| Funksiya | Gosterici | Tesvir |
-|----------|-----------|--------|
-| `createOffer(uint256 energyAmount, uint256 pricePerUnit, uint256 duration, EnergySource source)` | public | Yeni elan yaradir. `duration` saniye ile. |
-| `buyEnergy(uint256 offerId)` | public | Alici offer alir. Token `transferFrom` ile kecir. Evvelce `approve` lazimdir. |
-| `cancelOffer(uint256 offerId)` | public | Yalniz satici oz elanini legv ede biler. Status Active olmalidir. |
-| `settleTransaction(uint256 offerId)` | onlyRole(OPERATOR_ROLE) | Grid operator enerji catdirildigini tesdiq edir. Token saticia kecir. |
-| `getOffer(uint256 offerId)` | view | Tek elan detali |
-| `getActiveOffers()` | view | Butun aktiv elanlar |
-| `getSellerOffers(address seller)` | view | Saticinin butun elanlari |
-| `getBuyerPurchases(address buyer)` | view | Alicinin butun alislari |
-| `expireOffer(uint256 offerId)` | public | Mudeti kecmis elanin statusunu Expired edir |
+| Function | Access | Description |
+|----------|--------|-------------|
+| `createOffer(uint256 energyAmount, uint256 pricePerUnit, uint256 duration, EnergySource source)` | public | Create a new energy offer. `duration` is in seconds. |
+| `buyEnergy(uint256 offerId)` | public | Purchase energy from an offer. Requires prior `approve()` call on EnergyToken. |
+| `cancelOffer(uint256 offerId)` | public | Cancel own offer. Only the seller can cancel. Status must be Active. |
+| `settleTransaction(uint256 offerId)` | OPERATOR_ROLE | Grid operator confirms energy delivery. Transfers tokens to seller. |
+| `getOffer(uint256 offerId)` | view | Get single offer details |
+| `getActiveOffers()` | view | Get all active offers |
+| `getSellerOffers(address seller)` | view | Get all offers by a seller |
+| `getBuyerPurchases(address buyer)` | view | Get all purchases by a buyer |
+| `expireOffer(uint256 offerId)` | public | Mark expired offer as Expired |
 
 **Events:**
 ```solidity
@@ -155,23 +156,24 @@ event TransactionSettled(uint256 indexed offerId, address indexed buyer, address
 event OfferExpired(uint256 indexed offerId);
 ```
 
-**Token axini (buyEnergy):**
+**Token Flow (buyEnergy):**
 ```
-1. Buyer evvelce EnergyToken.approve(TradingContract, totalPrice) cagirir
-2. Buyer EnergyTrading.buyEnergy(offerId) cagirir
-3. Contract EnergyToken.transferFrom(buyer, contract, totalPrice) edir
-4. Offer statusu Sold olur, buyer yazilir
-5. EnergyPurchased event emit olunur
-6. Grid operator fiziki enerjini verify edir
-7. Operator settleTransaction(offerId) cagirir
-8. Contract EnergyToken.transfer(seller, totalPrice - fee) edir
-9. Contract EnergyToken.transfer(feeCollector, fee) edir
-10. TransactionSettled event emit olunur
+ 1. Buyer calls EnergyToken.approve(TradingContract, totalPrice)
+ 2. Buyer calls EnergyTrading.buyEnergy(offerId)
+ 3. Contract calls EnergyToken.transferFrom(buyer, contract, totalPrice)
+ 4. Offer status changes to Sold, buyer address recorded
+ 5. EnergyPurchased event emitted
+ 6. Grid operator verifies physical energy delivery
+ 7. Operator calls settleTransaction(offerId)
+ 8. Contract calls EnergyToken.transfer(seller, totalPrice - fee)
+ 9. Contract calls EnergyToken.transfer(feeCollector, fee)
+10. TransactionSettled event emitted
 ```
 
-**Gas Estimation:**
-| Emeliyyat | Taxmini Gas |
-|-----------|-------------|
+**Gas Estimates:**
+
+| Operation | Estimated Gas |
+|-----------|---------------|
 | createOffer | ~120,000 |
 | buyEnergy | ~150,000 |
 | cancelOffer | ~45,000 |
@@ -181,7 +183,7 @@ event OfferExpired(uint256 indexed offerId);
 
 ### 2.3. SmartMeterRegistry.sol
 
-**Meqsed:** Smart meter cihazlarinin on-chain qeydiyyati ve data hash-lerinin saxlanmasi.
+**Purpose:** On-chain registration of smart meter devices and storage of data hashes for integrity verification.
 
 **State Variables:**
 ```solidity
@@ -203,21 +205,21 @@ struct SmartMeter {
 struct MeterReading {
     uint256 timestamp;
     bytes32 dataHash;         // keccak256(consumption, production, voltage, frequency)
-    uint256 consumptionWh;    // Wh (Watt-hour) daha deqiq
+    uint256 consumptionWh;    // Wh (Watt-hour) for precision
     uint256 productionWh;
 }
 ```
 
-**Funksiyalar:**
+**Functions:**
 
-| Funksiya | Gosterici | Tesvir |
-|----------|-----------|--------|
-| `registerMeter(bytes32 meterId, string location)` | public | Yeni meter qeydiyyati. msg.sender owner olur. |
-| `submitReading(bytes32 meterId, uint256 consumption, uint256 production, bytes32 dataHash)` | onlyMeterOwner | Data hash yazilir. Raw data IPFS/PostgreSQL-de. |
-| `getLatestReading(bytes32 meterId)` | view | Son oxuma |
-| `getMeterHistory(bytes32 meterId, uint256 from, uint256 to)` | view | Tarix araliginda oxumalar |
-| `deactivateMeter(bytes32 meterId)` | onlyMeterOwner | Meteri deaktiv edir |
-| `verifyReading(bytes32 meterId, uint256 timestamp, bytes32 dataHash)` | view | Data hash-i yoxlayir (tamper check) |
+| Function | Access | Description |
+|----------|--------|-------------|
+| `registerMeter(bytes32 meterId, string location)` | public | Register a new meter. `msg.sender` becomes the owner. |
+| `submitReading(bytes32 meterId, uint256 consumption, uint256 production, bytes32 dataHash)` | onlyMeterOwner | Submit a data hash. Raw data stored in PostgreSQL/IPFS. |
+| `getLatestReading(bytes32 meterId)` | view | Get the most recent reading |
+| `getMeterHistory(bytes32 meterId, uint256 from, uint256 to)` | view | Get readings within a time range |
+| `deactivateMeter(bytes32 meterId)` | onlyMeterOwner | Deactivate a meter |
+| `verifyReading(bytes32 meterId, uint256 timestamp, bytes32 dataHash)` | view | Verify data hash integrity (tamper check) |
 
 **Events:**
 ```solidity
@@ -226,35 +228,36 @@ event ReadingSubmitted(bytes32 indexed meterId, uint256 timestamp, bytes32 dataH
 event MeterDeactivated(bytes32 indexed meterId);
 ```
 
-**Data integrity flow:**
+**Data Integrity Flow:**
 ```
-1. Smart meter sensor data oxuyur (consumption, production, voltage, frequency)
-2. Backend raw data-ni PostgreSQL/TimescaleDB-e yazir
-3. Backend data-nin hash-ini hesablayir: keccak256(abi.encode(consumption, production, voltage, frequency))
-4. Backend SmartMeterRegistry.submitReading() cagirir (hash on-chain yazilir)
-5. Sonradan verify ucun: off-chain data-dan hash hesablanir ve on-chain hash ile muqayise olunur
+1. Smart meter sensor reads data (consumption, production, voltage, frequency)
+2. Backend writes raw data to PostgreSQL/TimescaleDB
+3. Backend computes hash: keccak256(abi.encode(consumption, production, voltage, frequency))
+4. Backend calls SmartMeterRegistry.submitReading() (hash stored on-chain)
+5. For verification: compute hash from off-chain data and compare with on-chain hash
 ```
 
-**Gas Estimation:**
-| Emeliyyat | Taxmini Gas |
-|-----------|-------------|
+**Gas Estimates:**
+
+| Operation | Estimated Gas |
+|-----------|---------------|
 | registerMeter | ~95,000 |
 | submitReading | ~75,000 |
 
-**Qeyd:** submitReading her deqiqe cagirilmamalidir. Optimal: her 1 saat ve ya her gun batch hash.
+> **Note:** `submitReading` should not be called every minute. Optimal frequency: hourly or daily batch hash submissions.
 
 ---
 
 ### 2.4. RewardDistributor.sol
 
-**Meqsed:** Enerji qenayeti ve yasil enerji istifadesi ucun token mukafatlari.
+**Purpose:** Distribute token rewards for energy savings and green energy usage.
 
 **State Variables:**
 ```solidity
 IERC20 public energyToken;
 mapping(address => uint256) public totalRewardsEarned;
 mapping(address => Reward[]) public rewardHistory;
-uint256 public rewardPool;                              // Movcud reward pool
+uint256 public rewardPool;                              // Available reward pool
 ```
 
 **Structs:**
@@ -266,24 +269,24 @@ struct Reward {
 }
 ```
 
-**Reward qaydalari:**
+**Reward Rules:**
 ```
-1. Az istehlak bonusu:    gunluk istehlak < 10kWh → 5 SGET
-2. Solar istehsal:        gunluk istehsal > 20kWh → 10 SGET
-3. Pik saatdan kacma:     18:00-21:00 arasi istehlak < 2kWh → 3 SGET
-4. Ardicil qenayet:       7 gun ardicil az istehlak → 25 SGET
-5. Ilk ticarot bonusu:    ilk P2P alis/satis → 50 SGET
+1. Low consumption bonus:     daily consumption < 10kWh → 5 SGET
+2. Solar production bonus:    daily production > 20kWh → 10 SGET
+3. Peak avoidance:            consumption < 2kWh during 18:00-21:00 → 3 SGET
+4. Consecutive savings:       7 consecutive low-consumption days → 25 SGET
+5. First trade bonus:         first P2P buy/sell → 50 SGET
 ```
 
-**Funksiyalar:**
+**Functions:**
 
-| Funksiya | Gosterici | Tesvir |
-|----------|-----------|--------|
-| `distributeReward(address user, uint256 amount, string reason)` | onlyRole(DISTRIBUTOR_ROLE) | Token reward transfer |
-| `fundRewardPool(uint256 amount)` | onlyRole(ADMIN_ROLE) | Reward pool-a token elave et |
-| `getRewardHistory(address user)` | view | Istifadecinin reward tarixcesi |
-| `getTotalRewards(address user)` | view | Umumi qaznailmis reward |
-| `getRewardPoolBalance()` | view | Movcud pool balansi |
+| Function | Access | Description |
+|----------|--------|-------------|
+| `distributeReward(address user, uint256 amount, string reason)` | DISTRIBUTOR_ROLE | Transfer token reward to user |
+| `fundRewardPool(uint256 amount)` | ADMIN_ROLE | Add tokens to the reward pool |
+| `getRewardHistory(address user)` | view | Get user's reward history |
+| `getTotalRewards(address user)` | view | Get total rewards earned by user |
+| `getRewardPoolBalance()` | view | Get current pool balance |
 
 **Events:**
 ```solidity
@@ -291,9 +294,10 @@ event RewardDistributed(address indexed user, uint256 amount, string reason, uin
 event RewardPoolFunded(uint256 amount, uint256 newBalance);
 ```
 
-**Gas Estimation:**
-| Emeliyyat | Taxmini Gas |
-|-----------|-------------|
+**Gas Estimates:**
+
+| Operation | Estimated Gas |
+|-----------|---------------|
 | distributeReward | ~70,000 |
 | fundRewardPool | ~55,000 |
 
@@ -301,12 +305,12 @@ event RewardPoolFunded(uint256 amount, uint256 newBalance);
 
 ### 2.5. GridGovernance.sol
 
-**Meqsed:** Decentralized idare etme - qiymet deyisiklikleri, qayda yenilemeleri ucun sesverme.
+**Purpose:** Decentralized governance — voting on price changes, rule updates, and platform parameters.
 
 **State Variables:**
 ```solidity
 uint256 public proposalCount;
-uint256 public votingPeriod;          // default: 7 gun (604800 saniye)
+uint256 public votingPeriod;          // default: 7 days (604,800 seconds)
 uint256 public quorumPercent;         // default: 30%
 mapping(uint256 => Proposal) public proposals;
 mapping(uint256 => mapping(address => bool)) public hasVoted;
@@ -318,7 +322,7 @@ struct Proposal {
     uint256 id;
     address proposer;
     string description;
-    bytes data;                       // encoded function call (eger varsa)
+    bytes data;                       // encoded function call (if applicable)
     uint256 forVotes;
     uint256 againstVotes;
     uint256 createdAt;
@@ -330,15 +334,15 @@ struct Proposal {
 enum ProposalStatus { Active, Passed, Rejected, Executed }
 ```
 
-**Funksiyalar:**
+**Functions:**
 
-| Funksiya | Gosterici | Tesvir |
-|----------|-----------|--------|
-| `createProposal(string description, bytes data)` | public (min token balance lazim) | Yeni teklif yaradir |
-| `vote(uint256 proposalId, bool support)` | public (token holder) | Ses verir. 1 adres = 1 ses. |
-| `executeProposal(uint256 proposalId)` | public | Qebul olunmus teklifi icra edir. Voting period bitmeli ve quorum olmalidir. |
-| `getProposal(uint256 proposalId)` | view | Teklif detali |
-| `getActiveProposals()` | view | Aktiv teklifler |
+| Function | Access | Description |
+|----------|--------|-------------|
+| `createProposal(string description, bytes data)` | public (min token balance required) | Create a new governance proposal |
+| `vote(uint256 proposalId, bool support)` | public (token holder) | Cast a vote. 1 address = 1 vote. |
+| `executeProposal(uint256 proposalId)` | public | Execute a passed proposal. Voting period must have ended with quorum reached. |
+| `getProposal(uint256 proposalId)` | view | Get proposal details |
+| `getActiveProposals()` | view | Get all active proposals |
 
 **Events:**
 ```solidity
@@ -349,18 +353,18 @@ event ProposalExecuted(uint256 indexed proposalId);
 
 ---
 
-## 3. Contract-lar arasi elaqe
+## 3. Inter-Contract Relationships
 
 ```
                     ┌──────────────────┐
-                    │  GridGovernance  │
-                    │    .sol          │
+                    │  GridGovernance   │
+                    │      .sol        │
                     └────────┬─────────┘
                              │ governs (fee %, rules)
                              ▼
 ┌──────────────┐    ┌──────────────────┐    ┌───────────────────┐
 │ EnergyToken  │◄───│  EnergyTrading   │───►│ SmartMeterRegistry│
-│   .sol       │    │     .sol         │    │      .sol         │
+│    .sol      │    │      .sol        │    │       .sol        │
 │              │    │                  │    │                   │
 │ ERC-20 token │    │ P2P marketplace  │    │ Meter verification│
 │ mint/burn    │    │ buy/sell/settle  │    │ data hash store   │
@@ -370,143 +374,143 @@ event ProposalExecuted(uint256 indexed proposalId);
        │                     ▼
        │            ┌──────────────────┐
        └───────────►│ RewardDistributor│
-                    │      .sol        │
-                    │ reward payout    │
+                    │       .sol       │
+                    │  reward payout   │
                     └──────────────────┘
 ```
 
-**Deploy sirasi (dependency order):**
-1. `EnergyToken.sol` - ilk deploy (diger contractlar buna referans edir)
-2. `SmartMeterRegistry.sol` - asili deyil
-3. `EnergyTrading.sol` - constructor-a EnergyToken address lazim
-4. `RewardDistributor.sol` - constructor-a EnergyToken address lazim
-5. `GridGovernance.sol` - butun contractlara referans ede biler
+**Deployment Order (dependency graph):**
+1. `EnergyToken.sol` — deployed first (all other contracts reference it)
+2. `SmartMeterRegistry.sol` — no dependencies
+3. `EnergyTrading.sol` — constructor requires EnergyToken address
+4. `RewardDistributor.sol` — constructor requires EnergyToken address
+5. `GridGovernance.sol` — can reference all contracts
 
 ---
 
-## 4. Ktor Backend ↔ Blockchain Inteqrasiya
+## 4. Ktor Backend ↔ Blockchain Integration
 
-### 4.1. Backend-in blockchain ile elaqesi
+### 4.1. Backend Communication with Blockchain
 
 ```
 Ktor Backend (Web3j)
        │
-       ├── READ (view functions) ───► Blockchain-den data oxu (gas yoxdur)
+       ├── READ (view functions) ───► Read data from blockchain (no gas required)
        │     balanceOf(), getOffer(), getActiveOffers()
        │
-       ├── WRITE (transactions) ───► Blockchain-e data yaz (gas lazimdir)
+       ├── WRITE (transactions) ───► Write data to blockchain (gas required)
        │     createOffer(), buyEnergy(), settleTransaction()
        │
-       └── LISTEN (events) ────────► Contract event-lerini dinle
+       └── LISTEN (events) ────────► Listen for contract events
              OfferCreated, EnergyPurchased, TransactionSettled
              │
-             └── PostgreSQL-i sync et (off-chain cache yenile)
+             └── Sync PostgreSQL (update off-chain cache)
 ```
 
-### 4.2. Event Listener → PostgreSQL Sync
+### 4.2. Event Listener → PostgreSQL Synchronization
 
-Backend contract event-lerini dinleyir ve PostgreSQL-i yenileyir:
+The backend listens for blockchain contract events and keeps PostgreSQL in sync:
 
 ```
 Blockchain Event              →  PostgreSQL Action
-─────────────────────────────────────────────────
+─────────────────────────────────────────────────────
 OfferCreated                  →  INSERT INTO energy_offers
 EnergyPurchased               →  UPDATE offers SET status='SOLD', INSERT INTO transactions
 OfferCancelled                →  UPDATE offers SET status='CANCELLED'
 TransactionSettled            →  UPDATE transactions SET status='SETTLED'
 Transfer (ERC-20)             →  UPDATE wallet_cache SET balance=...
 RewardDistributed             →  INSERT INTO rewards
-MeterRegistered               →  INSERT INTO smart_meters (on-chain flag=true)
+MeterRegistered               →  INSERT INTO smart_meters (on_chain_flag=true)
 ```
 
 ### 4.3. Wallet Management
 
-| Ssenari | Yanaşma |
-|---------|---------|
-| Istifadecinin oz wallet-i var (MetaMask) | Frontend walletAddress-i backend-e gonderir, backend DB-ye yazir |
-| Istifadecinin wallet-i yoxdur | Backend custodial wallet yaradir (Web3j), private key encrypted saxlanir |
-| Transaction imzalama | Frontend imzalayir (MetaMask) ve ya backend custodial key ile imzalayir |
+| Scenario | Approach |
+|----------|----------|
+| User has own wallet (MetaMask) | Frontend sends walletAddress to backend; backend stores in DB |
+| User has no wallet | Backend creates custodial wallet (Web3j); private key stored encrypted |
+| Transaction signing | Frontend signs (MetaMask) or backend signs with custodial key |
 
 ---
 
-## 5. Sepolia Testnet Konfiqurasiya
+## 5. Sepolia Testnet Configuration
 
 ```
-Network: Sepolia
-Chain ID: 11155111
-RPC URL: https://sepolia.infura.io/v3/YOUR_PROJECT_ID
-       ve ya https://eth-sepolia.g.alchemy.com/v2/YOUR_API_KEY
+Network:        Sepolia
+Chain ID:       11155111
+RPC URL:        https://sepolia.infura.io/v3/YOUR_PROJECT_ID
+                or https://eth-sepolia.g.alchemy.com/v2/YOUR_API_KEY
 Block Explorer: https://sepolia.etherscan.io
-Faucet: https://sepoliafaucet.com
+Faucet:         https://sepoliafaucet.com
 ```
 
-**Lazim olan servisler:**
-- **Infura** ve ya **Alchemy** - RPC provider (pulsuz tier kifayetdir)
-- **Sepolia ETH** - faucet-den test ETH al (gas ucun)
-- **Etherscan API key** - contract verify ucun
+**Required Services:**
+- **Infura** or **Alchemy** — RPC provider (free tier is sufficient)
+- **Sepolia ETH** — obtain test ETH from faucet (needed for gas)
+- **Etherscan API key** — for contract verification
 
 ---
 
-## 6. Gas Optimizasiya Strategiyalari
+## 6. Gas Optimization Strategies
 
-| Strategiya | Tesvir |
-|-----------|--------|
-| Batch reading submission | Meter data-ni her saat ve ya gun batch hash kimi gondor, her deqiqe yox |
-| Event-based caching | On-chain data-ni her defe oxuma, event-lerle PostgreSQL-i sync et |
-| Minimal on-chain storage | Yalniz hash saxla, raw data off-chain |
-| Pack structs | Solidity struct-larda uint256 yerine uint128/uint64 istifade et (gas azaldir) |
-| View functions ucun off-chain fallback | getActiveOffers() yerine PostgreSQL-den oxu (daha suretli, gas yoxdur) |
+| Strategy | Description |
+|----------|-------------|
+| Batch reading submission | Submit meter data as hourly/daily batch hashes, not per-minute |
+| Event-based caching | Avoid reading on-chain data repeatedly; sync via events to PostgreSQL |
+| Minimal on-chain storage | Store only hashes on-chain, keep raw data off-chain |
+| Pack structs | Use `uint128`/`uint64` instead of `uint256` in Solidity structs to reduce gas |
+| Off-chain fallback for view functions | Read from PostgreSQL instead of calling `getActiveOffers()` on-chain (faster, no gas) |
 
 ---
 
 ## 7. Security Checklist
 
-- [ ] Reentrancy guard (ReentrancyGuard) butun write funksiyalarda
-- [ ] Access control (MINTER_ROLE, OPERATOR_ROLE, ADMIN_ROLE)
-- [ ] Integer overflow protection (Solidity 0.8+ default)
-- [ ] Offer expiration check (block.timestamp)
-- [ ] Double-buy prevention (status check)
-- [ ] Seller !== buyer check
-- [ ] Zero address check
-- [ ] Approve before transferFrom (front-running mitigation)
-- [ ] Emergency pause (Pausable)
-- [ ] Upgradeable proxy pattern (istege bagli)
+- [ ] Reentrancy guard (`ReentrancyGuard`) on all state-changing functions
+- [ ] Access control (`MINTER_ROLE`, `OPERATOR_ROLE`, `ADMIN_ROLE`)
+- [ ] Integer overflow protection (default in Solidity 0.8+)
+- [ ] Offer expiration check (`block.timestamp`)
+- [ ] Double-buy prevention (status validation)
+- [ ] Seller ≠ buyer validation
+- [ ] Zero address checks
+- [ ] Approve before `transferFrom` (front-running mitigation)
+- [ ] Emergency pause functionality (`Pausable`)
+- [ ] Upgradeable proxy pattern (optional, for future upgrades)
 
 ---
 
-## 8. Test Ssenari Checklist
+## 8. Test Scenario Checklist
 
 ### EnergyToken
-- [ ] Mint yalniz MINTER_ROLE ile isleyir
-- [ ] Transfer dogru isleyir
-- [ ] Approve + transferFrom dogru isleyir
-- [ ] MAX_SUPPLY limit yoxlanir
-- [ ] Burn dogru isleyir
+- [ ] Mint only works with `MINTER_ROLE`
+- [ ] Transfer works correctly between addresses
+- [ ] Approve + transferFrom works correctly
+- [ ] `MAX_SUPPLY` limit is enforced
+- [ ] Burn works correctly
 
 ### EnergyTrading
-- [ ] createOffer dogru struct yaradir
-- [ ] buyEnergy token transfer edir
-- [ ] buyEnergy yalniz Active offer-de isleyir
-- [ ] cancelOffer yalniz seller ucun isleyir
-- [ ] settleTransaction yalniz OPERATOR ile isleyir
-- [ ] Expired offer ala bilmir
-- [ ] Eyni offer-i 2 defe ala bilmir
-- [ ] Platform fee dogru hesablanir
+- [ ] `createOffer` produces correct struct
+- [ ] `buyEnergy` transfers tokens correctly
+- [ ] `buyEnergy` only works on Active offers
+- [ ] `cancelOffer` only works for the offer seller
+- [ ] `settleTransaction` only works with `OPERATOR_ROLE`
+- [ ] Cannot buy an expired offer
+- [ ] Cannot buy the same offer twice
+- [ ] Platform fee is calculated correctly
 
 ### SmartMeterRegistry
-- [ ] registerMeter dogru isleyir
-- [ ] submitReading yalniz owner ile isleyir
-- [ ] verifyReading hash muqayisesi dogrudur
-- [ ] Deaktiv meter-e reading submit olmur
+- [ ] `registerMeter` works correctly
+- [ ] `submitReading` only works for meter owner
+- [ ] `verifyReading` hash comparison is correct
+- [ ] Cannot submit reading for deactivated meter
 
 ### RewardDistributor
-- [ ] distributeReward token transfer edir
-- [ ] Reward pool-dan cixir
-- [ ] Pool bitdikde revert edir
-- [ ] Tarixce dogru saxlanir
+- [ ] `distributeReward` transfers tokens correctly
+- [ ] Rewards are deducted from the pool
+- [ ] Reverts when pool is depleted
+- [ ] History is stored correctly
 
 ### GridGovernance
-- [ ] Proposal yaratmaq ucun min token balance lazimdir
-- [ ] 1 adres 1 defe ses vere biler
-- [ ] Voting period bitdikden sonra execute olunur
-- [ ] Quorum yoxlanir
+- [ ] Minimum token balance required to create proposal
+- [ ] One address can vote only once per proposal
+- [ ] Execution only after voting period ends
+- [ ] Quorum validation is enforced

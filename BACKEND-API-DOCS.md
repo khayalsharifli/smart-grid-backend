@@ -2,16 +2,57 @@
 
 **Base URL:** `http://localhost:8080/api/v1`
 **Framework:** Ktor (Kotlin)
-**Auth:** JWT Bearer Token
+**Authentication:** JWT Bearer Token (HS256)
+**Content-Type:** `application/json`
 
 ---
 
-## 1. Landing Page API (Public - Auth teleb etmir)
+## Table of Contents
 
-Bu endpoint-ler landing page melumatlarini qaytarir. Heç bir JWT token teleb etmir.
+1. [Landing Page API](#1-landing-page-api-public)
+2. [Authentication API](#2-authentication-api)
+3. [Energy API](#3-energy-api-)
+4. [Trading API](#4-trading-api-)
+5. [Wallet API](#5-wallet-api-)
+6. [Meter API](#6-meter-api-)
+7. [Analytics API](#7-analytics-api-)
+8. [Admin API](#8-admin-api--admin-role-required)
+9. [Error Handling](#9-error-handling)
+10. [Test Credentials](#10-mock-test-credentials)
+
+---
+
+## Response Envelope
+
+All API responses follow a standard wrapper format:
+
+```json
+{
+  "success": true,
+  "data": { ... },
+  "message": "Optional success message",
+  "error": null
+}
+```
+
+On error:
+```json
+{
+  "success": false,
+  "data": null,
+  "error": "Error description"
+}
+```
+
+---
+
+## 1. Landing Page API (Public)
+
+These endpoints return landing page content. No authentication required.
 
 ### GET /landing
-Butun landing page datasini bir requestle al.
+
+Returns the complete landing page data in a single request.
 
 **Response (200):**
 ```json
@@ -37,7 +78,8 @@ Butun landing page datasini bir requestle al.
 ---
 
 ### GET /landing/hero
-Hero section datasi.
+
+Returns hero section data with platform statistics highlights.
 
 **Response (200):**
 ```json
@@ -60,7 +102,8 @@ Hero section datasi.
 ---
 
 ### GET /landing/features
-Why SmartGrid? - feature siyahisi.
+
+Returns the platform features list ("Why SmartGrid?").
 
 **Response (200):**
 ```json
@@ -97,7 +140,8 @@ Why SmartGrid? - feature siyahisi.
 ---
 
 ### GET /landing/how-it-works
-Start Trading in Minutes - addimlar.
+
+Returns the onboarding steps section.
 
 **Response (200):**
 ```json
@@ -134,7 +178,8 @@ Start Trading in Minutes - addimlar.
 ---
 
 ### GET /landing/stats
-Platform statistikalari.
+
+Returns platform-wide statistics.
 
 **Response (200):**
 ```json
@@ -156,7 +201,8 @@ Platform statistikalari.
 ---
 
 ### GET /landing/cta
-Call-to-action section.
+
+Returns the call-to-action section.
 
 **Response (200):**
 ```json
@@ -174,7 +220,8 @@ Call-to-action section.
 ---
 
 ### GET /landing/footer
-Footer datasi (linkler, social, copyright).
+
+Returns footer data including navigation links, social links, and copyright.
 
 **Response (200):**
 ```json
@@ -215,21 +262,28 @@ Footer datasi (linkler, social, copyright).
 
 ---
 
-## 2. Auth API
+## 2. Authentication API
 
 ### POST /auth/register
-Yeni istifadeci qeydiyyati.
+
+Register a new user account.
 
 **Request Body:**
 ```json
 {
   "email": "user@example.com",
   "password": "securePassword123",
-  "name": "Elvin Mammadov",
+  "name": "John Doe",
   "role": "CONSUMER"
 }
 ```
-**role enum:** `CONSUMER`, `PROSUMER`, `GRID_OPERATOR`, `ADMIN`
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `email` | string | Yes | Valid email address |
+| `password` | string | Yes | User password |
+| `name` | string | Yes | Full name |
+| `role` | enum | Yes | One of: `CONSUMER`, `PROSUMER`, `GRID_OPERATOR`, `ADMIN` |
 
 **Response (201):**
 ```json
@@ -245,10 +299,14 @@ Yeni istifadeci qeydiyyati.
 }
 ```
 
+**Errors:**
+- `400` — "Email already registered" if the email is already in use
+
 ---
 
 ### POST /auth/login
-JWT token al.
+
+Authenticate an existing user and receive JWT tokens.
 
 **Request Body:**
 ```json
@@ -257,6 +315,11 @@ JWT token al.
   "password": "password123"
 }
 ```
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `email` | string | Yes | Registered email address |
+| `password` | string | Yes | Account password |
 
 **Response (200):**
 ```json
@@ -271,12 +334,14 @@ JWT token al.
 }
 ```
 
-**Error (400):** `"Invalid email or password"`
+**Errors:**
+- `400` — "Invalid email or password"
 
 ---
 
 ### POST /auth/refresh
-Token yenile.
+
+Refresh an expired access token using a valid refresh token.
 
 **Request Body:**
 ```json
@@ -285,14 +350,29 @@ Token yenile.
 }
 ```
 
-**Response (200):** Yeni accessToken ve refreshToken qaytarir.
+**Response (200):**
+```json
+{
+  "success": true,
+  "data": {
+    "accessToken": "eyJhbGciOiJIUzI1NiIs...(new)",
+    "refreshToken": "eyJhbGciOiJIUzI1NiIs...(new)",
+    "expiresIn": 86400,
+    "userId": "user-001"
+  }
+}
+```
+
+**Errors:**
+- `400` — "Invalid refresh token"
 
 ---
 
 ### POST /auth/wallet/link 🔒
-Ethereum wallet bagla.
 
-**Headers:** `Authorization: Bearer <token>`
+Link an Ethereum wallet address to the authenticated user's account.
+
+**Headers:** `Authorization: Bearer <access_token>`
 
 **Request Body:**
 ```json
@@ -302,14 +382,10 @@ Ethereum wallet bagla.
 }
 ```
 
-**Response (200):** Yenilenmis User obyekti.
-
----
-
-### GET /auth/profile 🔒
-Istifadeci profili.
-
-**Headers:** `Authorization: Bearer <token>`
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `walletAddress` | string | Yes | Ethereum wallet address |
+| `signature` | string | Yes | Signed message proving wallet ownership |
 
 **Response (200):**
 ```json
@@ -318,7 +394,30 @@ Istifadeci profili.
   "data": {
     "id": "user-001",
     "email": "consumer@smartgrid.az",
-    "name": "Elvin Mammadov",
+    "name": "John Doe",
+    "role": "CONSUMER",
+    "walletAddress": "0x1234abcd5678ef901234abcd5678ef90",
+    "createdAt": 1710000000000
+  }
+}
+```
+
+---
+
+### GET /auth/profile 🔒
+
+Retrieve the authenticated user's profile information.
+
+**Headers:** `Authorization: Bearer <access_token>`
+
+**Response (200):**
+```json
+{
+  "success": true,
+  "data": {
+    "id": "user-001",
+    "email": "consumer@smartgrid.az",
+    "name": "John Doe",
     "role": "CONSUMER",
     "walletAddress": "0x1234abcd5678ef90",
     "createdAt": 1710000000000
@@ -329,28 +428,41 @@ Istifadeci profili.
 ---
 
 ### PUT /auth/profile 🔒
-Profil yenile.
 
-**Headers:** `Authorization: Bearer <token>`
+Update the authenticated user's profile (name and/or email).
+
+**Headers:** `Authorization: Bearer <access_token>`
 
 **Request Body:**
 ```json
 {
-  "name": "Elvin M.",
-  "email": "elvin.new@smartgrid.az"
+  "name": "John D.",
+  "email": "john.new@smartgrid.az"
 }
 ```
 
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `name` | string | No | Updated display name |
+| `email` | string | No | Updated email address |
+
+**Response (200):** Updated User object.
+
 ---
 
-## 2. Energy API 🔒
+## 3. Energy API 🔒
 
-Butun energy endpoint-leri JWT token teleb edir.
+All energy endpoints require a valid JWT token in the `Authorization` header.
 
-### GET /energy/consumption?period=daily
-Istehlak datasi.
+### GET /energy/consumption
 
-**Query Params:** `period` = `daily` | `weekly` | `monthly`
+Retrieve historical energy consumption data for the authenticated user.
+
+**Query Parameters:**
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `period` | enum | `daily` | One of: `daily`, `weekly`, `monthly` |
 
 **Response (200):**
 ```json
@@ -361,6 +473,11 @@ Istehlak datasi.
       "timestamp": 1711100000000,
       "consumptionKwh": 2.35,
       "productionKwh": 0.0
+    },
+    {
+      "timestamp": 1711103600000,
+      "consumptionKwh": 1.87,
+      "productionKwh": 0.0
     }
   ]
 }
@@ -368,17 +485,23 @@ Istehlak datasi.
 
 ---
 
-### GET /energy/production?period=daily
-Istehsal datasi (prosumer ucun).
+### GET /energy/production
 
-**Query Params:** `period` = `daily` | `weekly` | `monthly`
+Retrieve historical energy production data. Primarily relevant for prosumers.
 
-**Response (200):** EnergyDataPoint array (timestamp, consumptionKwh, productionKwh)
+**Query Parameters:**
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `period` | enum | `daily` | One of: `daily`, `weekly`, `monthly` |
+
+**Response (200):** Array of `EnergyDataPoint` objects with `timestamp`, `consumptionKwh`, and `productionKwh`.
 
 ---
 
 ### GET /energy/summary
-Dashboard summary.
+
+Retrieve the full dashboard summary including current readings, daily totals, wallet balance, and recent activity.
 
 **Response (200):**
 ```json
@@ -402,7 +525,8 @@ Dashboard summary.
 ---
 
 ### GET /energy/forecast
-Enerji forecast (ML model).
+
+Retrieve a 24-hour energy consumption and production forecast generated by ML models.
 
 **Response (200):**
 ```json
@@ -428,10 +552,13 @@ Enerji forecast (ML model).
 
 ---
 
-## 3. Trading API 🔒
+## 4. Trading API 🔒
+
+All trading endpoints require a valid JWT token.
 
 ### GET /trading/offers
-Aktiv elanlar siyahisi.
+
+List all currently active energy offers on the marketplace.
 
 **Response (200):**
 ```json
@@ -456,14 +583,25 @@ Aktiv elanlar siyahisi.
 ---
 
 ### GET /trading/offers/{id}
-Elan detali.
 
-**Response (200):** Tek EnergyOffer obyekti.
+Retrieve details of a specific energy offer by its ID.
+
+**Path Parameters:**
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `id` | string | Offer ID (e.g., `offer-001`) |
+
+**Response (200):** Single `EnergyOffer` object.
+
+**Errors:**
+- `404` — "Offer not found"
 
 ---
 
 ### POST /trading/offers
-Yeni elan yarat.
+
+Create a new energy offer on the marketplace. Only prosumers typically create offers.
 
 **Request Body:**
 ```json
@@ -475,22 +613,43 @@ Yeni elan yarat.
 }
 ```
 
-**energySource enum:** `SOLAR`, `WIND`, `HYDRO`, `MIXED`
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `energyAmountKwh` | double | Yes | Amount of energy to sell (kWh) |
+| `pricePerKwh` | double | Yes | Price per kWh in tokens |
+| `energySource` | enum | Yes | One of: `SOLAR`, `WIND`, `HYDRO`, `MIXED` |
+| `durationHours` | int | Yes | Offer validity period in hours |
 
-**Response (201):** Yaradilmis EnergyOffer obyekti.
+**Response (201):** Created `EnergyOffer` object.
 
 ---
 
 ### DELETE /trading/offers/{id}
-Elani sil/legv et.
 
-**Response (200):** `"Offer cancelled"`
-**Error (404):** `"Offer not found"`
+Cancel an active energy offer. Only the offer creator can cancel it.
+
+**Path Parameters:**
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `id` | string | Offer ID to cancel |
+
+**Response (200):**
+```json
+{
+  "success": true,
+  "message": "Offer cancelled"
+}
+```
+
+**Errors:**
+- `404` — "Offer not found"
 
 ---
 
 ### POST /trading/buy
-Enerji al (smart contract trigger).
+
+Purchase energy from an active offer. Triggers a blockchain smart contract transaction.
 
 **Request Body:**
 ```json
@@ -500,19 +659,48 @@ Enerji al (smart contract trigger).
 }
 ```
 
-**Response (200):** Transaction obyekti (status: PENDING).
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `offerId` | string | Yes | ID of the offer to purchase |
+| `buyerWalletAddress` | string | Yes | Buyer's Ethereum wallet address |
+
+**Response (200):** `Transaction` object with `status: "PENDING"`.
 
 ---
 
 ### GET /trading/history
-Tranzaksiya tarixcesi.
 
-**Response (200):** Transaction array.
+Retrieve the authenticated user's complete trade history.
+
+**Response (200):**
+```json
+{
+  "success": true,
+  "data": [
+    {
+      "id": "tx-001",
+      "txHash": "0xabc123...",
+      "buyerId": "user-001",
+      "sellerId": "user-002",
+      "offerId": "offer-001",
+      "energyAmountKwh": 15.0,
+      "totalPrice": 3.75,
+      "type": "ENERGY_PURCHASE",
+      "status": "CONFIRMED",
+      "createdAt": 1711100000000
+    }
+  ]
+}
+```
+
+**Transaction Types:** `ENERGY_PURCHASE`, `TOKEN_TRANSFER`, `REWARD_CLAIM`
+**Transaction Statuses:** `PENDING`, `CONFIRMED`, `DELIVERED`, `SETTLED`, `FAILED`
 
 ---
 
 ### GET /trading/price
-Cari dinamik qiymet.
+
+Retrieve the current dynamic market price based on supply and demand.
 
 **Response (200):**
 ```json
@@ -529,14 +717,17 @@ Cari dinamik qiymet.
 }
 ```
 
-**trend enum:** `RISING`, `FALLING`, `STABLE`
+**Trend Values:** `RISING`, `FALLING`, `STABLE`
 
 ---
 
-## 4. Wallet API 🔒
+## 5. Wallet API 🔒
+
+All wallet endpoints require a valid JWT token.
 
 ### GET /wallet/balance
-Token + ETH balansi.
+
+Retrieve the authenticated user's wallet balance including ETH, energy tokens, and fiat equivalent.
 
 **Response (200):**
 ```json
@@ -555,14 +746,16 @@ Token + ETH balansi.
 ---
 
 ### GET /wallet/transactions
-Wallet tranzaksiyalari.
 
-**Response (200):** Transaction array.
+Retrieve the authenticated user's wallet transaction history.
+
+**Response (200):** Array of `Transaction` objects.
 
 ---
 
 ### POST /wallet/transfer
-Token transfer.
+
+Transfer energy tokens to another wallet address.
 
 **Request Body:**
 ```json
@@ -572,12 +765,18 @@ Token transfer.
 }
 ```
 
-**Response (200):** Transaction obyekti (status: PENDING).
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `toAddress` | string | Yes | Recipient's Ethereum wallet address |
+| `amount` | double | Yes | Amount of energy tokens to transfer |
+
+**Response (200):** `Transaction` object with `status: "PENDING"`.
 
 ---
 
 ### GET /wallet/rewards
-Reward tarixcesi.
+
+Retrieve the authenticated user's reward history.
 
 **Response (200):**
 ```json
@@ -588,9 +787,17 @@ Reward tarixcesi.
       "id": "reward-001",
       "userId": "user-001",
       "amount": 10.0,
-      "reason": "Enerji qenayeti bonusu - Yanvar",
+      "reason": "Energy savings bonus - January",
       "claimed": false,
       "createdAt": 1708500000000
+    },
+    {
+      "id": "reward-002",
+      "userId": "user-001",
+      "amount": 25.0,
+      "reason": "7-day consecutive savings streak",
+      "claimed": true,
+      "createdAt": 1709200000000
     }
   ]
 }
@@ -598,19 +805,30 @@ Reward tarixcesi.
 
 ---
 
-### POST /wallet/claim-reward?rewardId=reward-001
-Reward claim et.
+### POST /wallet/claim-reward
 
-**Query Params:** `rewardId` (required)
+Claim a pending reward and receive energy tokens.
 
-**Response (200):** Claimed Reward obyekti (claimed: true).
+**Query Parameters:**
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `rewardId` | string | Yes | ID of the reward to claim (e.g., `reward-001`) |
+
+**Response (200):** `Reward` object with `claimed: true`.
+
+**Errors:**
+- `404` — "Reward not found"
 
 ---
 
-## 5. Meter API 🔒
+## 6. Meter API 🔒
+
+All meter endpoints require a valid JWT token.
 
 ### GET /meters
-Qosulmus cihazlar.
+
+List all smart meters registered to the authenticated user.
 
 **Response (200):**
 ```json
@@ -620,7 +838,7 @@ Qosulmus cihazlar.
     {
       "id": "meter-001",
       "userId": "user-001",
-      "name": "Ev sayqaci",
+      "name": "Home Meter",
       "model": "ABB A44",
       "status": "ONLINE",
       "lastReading": 2.4,
@@ -630,34 +848,60 @@ Qosulmus cihazlar.
 }
 ```
 
-**status enum:** `ONLINE`, `OFFLINE`, `MAINTENANCE`, `ERROR`
+**Meter Statuses:** `ONLINE`, `OFFLINE`, `MAINTENANCE`, `ERROR`
 
 ---
 
 ### POST /meters
-Yeni cihaz elave et.
+
+Register a new smart meter device.
 
 **Request Body:**
 ```json
 {
-  "name": "Yeni sayqac",
-  "model": "Schneider iEM3155"
+  "name": "Home Meter",
+  "model": "ABB A44"
 }
 ```
 
-**Response (201):** SmartMeter obyekti.
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `name` | string | Yes | Display name for the meter |
+| `model` | string | Yes | Hardware model identifier |
+
+**Response (201):** Created `SmartMeter` object.
 
 ---
 
 ### DELETE /meters/{id}
-Cihaz sil.
 
-**Response (200):** `"Meter deleted"`
+Remove a smart meter from the user's account.
+
+**Path Parameters:**
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `id` | string | Meter ID (e.g., `meter-001`) |
+
+**Response (200):**
+```json
+{
+  "success": true,
+  "message": "Meter deleted"
+}
+```
 
 ---
 
 ### GET /meters/{id}/data
-Cihaz datasi (son 60 deqiqe).
+
+Retrieve recent readings from a specific smart meter (last 60 minutes of data).
+
+**Path Parameters:**
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `id` | string | Meter ID |
 
 **Response (200):**
 ```json
@@ -679,17 +923,40 @@ Cihaz datasi (son 60 deqiqe).
 
 ---
 
-### WS /api/v1/meters/stream
-Real-time WebSocket stream (her 2 saniye SmartMeterData gondorilir).
+### WebSocket: /api/v1/meters/stream
+
+Establish a WebSocket connection for real-time smart meter data streaming. The server pushes `SmartMeterData` objects every 2 seconds.
+
+**Connection:** `ws://localhost:8080/api/v1/meters/stream`
+
+**Message Format (server → client):**
+```json
+{
+  "meterId": "meter-001",
+  "userId": "user-001",
+  "consumptionKwh": 1.85,
+  "productionKwh": 0.0,
+  "voltage": 221.3,
+  "frequency": 50.02,
+  "timestamp": 1711100000000
+}
+```
 
 ---
 
-## 6. Analytics API 🔒
+## 7. Analytics API 🔒
 
-### GET /analytics/energy?period=monthly
-Enerji trend analizi.
+All analytics endpoints require a valid JWT token.
 
-**Query Params:** `period` = `daily` | `weekly` | `monthly`
+### GET /analytics/energy
+
+Retrieve energy analytics and trend data for the authenticated user.
+
+**Query Parameters:**
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `period` | enum | `daily` | One of: `daily`, `weekly`, `monthly` |
 
 **Response (200):**
 ```json
@@ -711,7 +978,8 @@ Enerji trend analizi.
 ---
 
 ### GET /analytics/carbon
-Carbon footprint.
+
+Retrieve the authenticated user's carbon footprint and environmental impact data.
 
 **Response (200):**
 ```json
@@ -733,24 +1001,69 @@ Carbon footprint.
 
 ---
 
-### GET /analytics/comparison?period1=2026-02&period2=2026-03
-Dovr muqayisesi.
+### GET /analytics/comparison
 
-**Response (200):** Map<String, EnergyAnalytics> - her iki dovr ucun analytics.
+Compare energy analytics between two time periods.
+
+**Query Parameters:**
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `period1` | string | Yes | First period (e.g., `2026-02`) |
+| `period2` | string | Yes | Second period (e.g., `2026-03`) |
+
+**Response (200):**
+```json
+{
+  "success": true,
+  "data": {
+    "2026-02": {
+      "userId": "user-001",
+      "period": "2026-02",
+      "totalConsumptionKwh": 520.0,
+      "totalProductionKwh": 340.0,
+      "avgDailyConsumption": 18.6,
+      "avgDailyProduction": 12.1,
+      "peakConsumptionKwh": 4.5,
+      "dataPoints": [...]
+    },
+    "2026-03": {
+      "userId": "user-001",
+      "period": "2026-03",
+      "totalConsumptionKwh": 555.0,
+      "totalProductionKwh": 369.0,
+      "avgDailyConsumption": 18.5,
+      "avgDailyProduction": 12.3,
+      "peakConsumptionKwh": 4.8,
+      "dataPoints": [...]
+    }
+  }
+}
+```
 
 ---
 
-## 7. Admin API 🔒 (ADMIN rolu teleb olunur)
+## 8. Admin API 🔒 (ADMIN Role Required)
+
+All admin endpoints require a valid JWT token with `ADMIN` role (unless otherwise noted).
 
 ### GET /admin/users
-Butun istifadeciler.
 
-**Response (200):** User array.
+List all registered users on the platform.
+
+**Response (200):** Array of `User` objects.
 
 ---
 
 ### PUT /admin/users/{id}/role
-Rol deyisdir.
+
+Change a user's role.
+
+**Path Parameters:**
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `id` | string | Target user ID |
 
 **Request Body:**
 ```json
@@ -759,27 +1072,44 @@ Rol deyisdir.
 }
 ```
 
-**Response (200):** Yenilenmis User obyekti.
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `role` | enum | Yes | One of: `CONSUMER`, `PROSUMER`, `GRID_OPERATOR`, `ADMIN` |
+
+**Response (200):** Updated `User` object.
 
 ---
 
 ### PUT /admin/users/{id}/block
-Istifadecini blokla.
+
+Block or unblock a user account.
+
+**Path Parameters:**
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `id` | string | Target user ID |
 
 **Request Body:**
 ```json
 {
   "blocked": true,
-  "reason": "Suspicious activity"
+  "reason": "Suspicious activity detected"
 }
 ```
 
-**Response (200):** User obyekti.
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `blocked` | boolean | Yes | `true` to block, `false` to unblock |
+| `reason` | string | No | Reason for blocking |
+
+**Response (200):** Updated `User` object.
 
 ---
 
 ### GET /admin/grid/health
-Grid saglamliq statusu. (ADMIN ve GRID_OPERATOR)
+
+Retrieve current grid health status and alerts. Accessible by `ADMIN` and `GRID_OPERATOR` roles.
 
 **Response (200):**
 ```json
@@ -792,8 +1122,8 @@ Grid saglamliq statusu. (ADMIN ve GRID_OPERATOR)
     "maxCapacityKw": 500.0,
     "healthPercentage": 93.75,
     "alerts": [
-      "Node #12 yuksek istehlak - 4.8kW",
-      "Node #37 baglanti kecikmes - 250ms"
+      "Node #12 high consumption - 4.8kW",
+      "Node #37 connection delay - 250ms"
     ]
   }
 }
@@ -802,14 +1132,22 @@ Grid saglamliq statusu. (ADMIN ve GRID_OPERATOR)
 ---
 
 ### POST /admin/grid/emergency
-Emergency shutdown.
 
-**Response (200):** `"Emergency shutdown initiated"`
+Initiate an emergency grid shutdown. Only `ADMIN` role can execute this action.
+
+**Response (200):**
+```json
+{
+  "success": true,
+  "message": "Emergency shutdown initiated"
+}
+```
 
 ---
 
 ### GET /admin/contracts
-Deploy edilmis smart contracts.
+
+List all deployed smart contracts on the blockchain.
 
 **Response (200):**
 ```json
@@ -821,6 +1159,12 @@ Deploy edilmis smart contracts.
       "address": "0xContractAddr001",
       "deployedAt": 1710000000000,
       "network": "sepolia"
+    },
+    {
+      "name": "EnergyTrading",
+      "address": "0xContractAddr002",
+      "deployedAt": 1710100000000,
+      "network": "sepolia"
     }
   ]
 }
@@ -829,7 +1173,8 @@ Deploy edilmis smart contracts.
 ---
 
 ### POST /admin/contracts/deploy
-Yeni contract deploy.
+
+Deploy a new smart contract to the blockchain.
 
 **Request Body:**
 ```json
@@ -839,41 +1184,203 @@ Yeni contract deploy.
 }
 ```
 
-**Response (201):** ContractInfo obyekti.
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `contractName` | string | Yes | Name of the contract to deploy |
+| `constructorArgs` | array | No | Constructor arguments for the contract |
+
+**Response (201):** `ContractInfo` object with the deployed contract details.
 
 ---
 
-## Error Response Formati
+## 9. Error Handling
 
-Butun xetalar eyni formatda qaytarilir:
+All errors follow the standard response envelope:
 
 ```json
 {
   "success": false,
-  "error": "Error message here"
+  "error": "Descriptive error message"
 }
 ```
 
-**Status Codes:**
-| Code | Sebebi |
-|------|--------|
-| 200 | Ugurlu emeliyyat |
-| 201 | Resurs yaradildi |
-| 400 | Yanlis request / validation xetasi |
-| 401 | Token yoxdur ve ya etibarsizdir |
-| 403 | Icaze yoxdur (rol uygunsuzlugu) |
-| 404 | Resurs tapilmadi |
-| 500 | Server xetasi |
+### HTTP Status Codes
+
+| Code | Description |
+|------|-------------|
+| `200` | Successful operation |
+| `201` | Resource created successfully |
+| `400` | Bad request — validation error or invalid input |
+| `401` | Unauthorized — missing or invalid JWT token |
+| `403` | Forbidden — insufficient permissions (role mismatch) |
+| `404` | Resource not found |
+| `500` | Internal server error |
+
+### Common Error Messages
+
+| Error | Status | Description |
+|-------|--------|-------------|
+| `"Invalid email or password"` | 400 | Login with wrong credentials |
+| `"Email already registered"` | 400 | Registration with existing email |
+| `"Invalid refresh token"` | 400 | Expired or invalid refresh token |
+| `"Offer not found"` | 404 | Accessing a non-existent offer |
+| `"Reward not found"` | 404 | Claiming a non-existent reward |
+| `"Forbidden"` | 403 | Non-admin accessing admin endpoints |
 
 ---
 
-## Mock Test Credentials
+## 10. Mock Test Credentials
 
-| Email | Password | Role |
-|-------|----------|------|
-| consumer@smartgrid.az | password123 | CONSUMER |
-| prosumer@smartgrid.az | password456 | PROSUMER |
-| admin@smartgrid.az | password789 | ADMIN |
-| operator@smartgrid.az | password000 | GRID_OPERATOR |
+The following test accounts are available in the mock environment:
 
-**Qeyd:** Mock rejimde sifre hash-i `hashed_<password>` formatindadir. Login ucun `hashed_password_123` seklinde saxlanilir, ona gore mock datada duzgun isleyir.
+| Email | Password | Role | User ID |
+|-------|----------|------|---------|
+| `consumer@smartgrid.az` | `password123` | CONSUMER | `user-001` |
+| `prosumer@smartgrid.az` | `password456` | PROSUMER | `user-002` |
+| `admin@smartgrid.az` | `password789` | ADMIN | `user-003` |
+| `operator@smartgrid.az` | `password000` | GRID_OPERATOR | `user-004` |
+
+> **Note:** In mock mode, passwords are stored in `hashed_<password>` format. The mock repository handles authentication internally.
+
+---
+
+## Appendix: Data Models
+
+### User
+```json
+{
+  "id": "string",
+  "email": "string",
+  "name": "string",
+  "role": "CONSUMER | PROSUMER | GRID_OPERATOR | ADMIN",
+  "walletAddress": "string | null",
+  "createdAt": "long (timestamp)"
+}
+```
+
+### EnergyOffer
+```json
+{
+  "id": "string",
+  "sellerId": "string",
+  "sellerName": "string",
+  "energyAmountKwh": "double",
+  "pricePerKwh": "double",
+  "energySource": "SOLAR | WIND | HYDRO | MIXED",
+  "status": "ACTIVE | SOLD | CANCELLED | EXPIRED",
+  "expiresAt": "long (timestamp)",
+  "createdAt": "long (timestamp)"
+}
+```
+
+### Transaction
+```json
+{
+  "id": "string",
+  "txHash": "string",
+  "buyerId": "string",
+  "sellerId": "string",
+  "offerId": "string",
+  "energyAmountKwh": "double",
+  "totalPrice": "double",
+  "type": "ENERGY_PURCHASE | TOKEN_TRANSFER | REWARD_CLAIM",
+  "status": "PENDING | CONFIRMED | DELIVERED | SETTLED | FAILED",
+  "createdAt": "long (timestamp)"
+}
+```
+
+### SmartMeter
+```json
+{
+  "id": "string",
+  "userId": "string",
+  "name": "string",
+  "model": "string",
+  "status": "ONLINE | OFFLINE | MAINTENANCE | ERROR",
+  "lastReading": "double",
+  "installedAt": "long (timestamp)"
+}
+```
+
+### SmartMeterData
+```json
+{
+  "meterId": "string",
+  "userId": "string",
+  "consumptionKwh": "double",
+  "productionKwh": "double",
+  "voltage": "double",
+  "frequency": "double",
+  "timestamp": "long (timestamp)"
+}
+```
+
+### WalletInfo
+```json
+{
+  "userId": "string",
+  "walletAddress": "string",
+  "ethBalance": "double",
+  "energyTokenBalance": "double",
+  "fiatEquivalentAzn": "double"
+}
+```
+
+### Reward
+```json
+{
+  "id": "string",
+  "userId": "string",
+  "amount": "double",
+  "reason": "string",
+  "claimed": "boolean",
+  "createdAt": "long (timestamp)"
+}
+```
+
+### EnergyAnalytics
+```json
+{
+  "userId": "string",
+  "period": "string",
+  "totalConsumptionKwh": "double",
+  "totalProductionKwh": "double",
+  "avgDailyConsumption": "double",
+  "avgDailyProduction": "double",
+  "peakConsumptionKwh": "double",
+  "dataPoints": "EnergyDataPoint[]"
+}
+```
+
+### CarbonFootprint
+```json
+{
+  "userId": "string",
+  "totalCarbonSavedKg": "double",
+  "treesEquivalent": "int",
+  "greenEnergyPercentage": "double",
+  "monthlyData": "CarbonDataPoint[]"
+}
+```
+
+### GridHealth
+```json
+{
+  "totalNodes": "int",
+  "activeNodes": "int",
+  "totalLoadKw": "double",
+  "maxCapacityKw": "double",
+  "healthPercentage": "double",
+  "alerts": "string[]"
+}
+```
+
+### ContractInfo
+```json
+{
+  "name": "string",
+  "address": "string",
+  "deployedAt": "long (timestamp)",
+  "network": "string"
+}
+```
